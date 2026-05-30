@@ -5,12 +5,51 @@ import { useRouter } from "next/navigation";
 import { TradingViewChart } from "./tradingview-chart";
 import { getStockBySymbol, TIER_CONFIG, RISK_CONFIG } from "@/lib/stocks-data";
 
+// PSAR + Supertrend added automatically in TradingViewChart for entry/exit arrows
 const CHARTS = [
-  { label: "15 دقيقة", interval: "15", studies: ["RSI@tv-basicstudies",   "Stochastic@tv-basicstudies"], tip: "RSI + Stoch" },
-  { label: "ساعي",     interval: "60", studies: ["MACD@tv-basicstudies",  "MASimple@tv-basicstudies"],   tip: "MACD + MA" },
-  { label: "يومي",     interval: "D",  studies: ["BB@tv-basicstudies",    "Volume@tv-basicstudies"],     tip: "BB + Vol" },
-  { label: "أسبوعي",  interval: "W",  studies: ["MAExp@tv-basicstudies", "RSI@tv-basicstudies"],        tip: "EMA + RSI" },
+  { label: "15 دقيقة", interval: "15", studies: ["RSI@tv-basicstudies",   "Stochastic@tv-basicstudies"], tip: "RSI + Stoch + نقاط دخول/خروج" },
+  { label: "ساعي",     interval: "60", studies: ["MACD@tv-basicstudies",  "MASimple@tv-basicstudies"],   tip: "MACD + MA + نقاط دخول/خروج" },
+  { label: "يومي",     interval: "D",  studies: ["BB@tv-basicstudies",    "Volume@tv-basicstudies"],     tip: "BB + حجم + نقاط دخول/خروج" },
+  { label: "أسبوعي",  interval: "W",  studies: ["MAExp@tv-basicstudies", "RSI@tv-basicstudies"],        tip: "EMA + RSI + نقاط دخول/خروج" },
 ];
+
+// ── Signal Readiness System ──────────────────────────────────────
+function getReadiness(score: number): {
+  phase: "خروج قوي" | "تهيؤ للخروج" | "محايد" | "تهيؤ للدخول" | "دخول قوي";
+  color: string; bg: string; border: string; icon: string; emoji: string;
+  desc: string; action: string;
+} {
+  if (score >= 70) return {
+    phase: "دخول قوي", color: "#22c55e", bg: "#03180a", border: "#22c55e44",
+    icon: "🟢🟢", emoji: "🚀",
+    desc: "جميع المؤشرات تتفق على الصعود — توقيت الدخول مثالي",
+    action: "ادخل الآن بكامل المركز وضع وقف الخسارة فوراً",
+  };
+  if (score >= 58) return {
+    phase: "تهيؤ للدخول", color: "#86efac", bg: "#051a0c", border: "#86efac33",
+    icon: "🟢", emoji: "⚡",
+    desc: "أغلب المؤشرات إيجابية — السهم يتهيأ للصعود",
+    action: "ابدأ بـ 50% من المركز وانتظر تأكيد إضافي",
+  };
+  if (score >= 42) return {
+    phase: "محايد", color: "#C9A84C", bg: "#140e04", border: "#C9A84C33",
+    icon: "🟡", emoji: "⏳",
+    desc: "المؤشرات متضاربة — لا يوجد اتجاه واضح",
+    action: "انتظر على الهامش — لا تدخل ولا تخرج بعجلة",
+  };
+  if (score >= 30) return {
+    phase: "تهيؤ للخروج", color: "#fca5a5", bg: "#180505", border: "#fca5a533",
+    icon: "🔴", emoji: "⚠️",
+    desc: "مؤشرات هبوط تتراكم — ابدأ بتقليل مركزك",
+    action: "أغلق 50% من مركزك وضيّق وقف الخسارة",
+  };
+  return {
+    phase: "خروج قوي", color: "#ef4444", bg: "#1a0303", border: "#ef444444",
+    icon: "🔴🔴", emoji: "🚨",
+    desc: "جميع المؤشرات تشير للهبوط — خطر حقيقي",
+    action: "اخرج بالكامل الآن — لا تنتظر",
+  };
+}
 
 interface LiveData {
   price: number; changePct: number; high: number; low: number; volume: number;
@@ -111,6 +150,36 @@ const CSS = `
 .gauge-counts { display: flex; flex-direction: column; gap: 2px; min-width: 70px; text-align: left; }
 .gauge-bull { font-size: 12px; color: #10b981; }
 .gauge-bear { font-size: 12px; color: #ef4444; }
+
+/* Readiness */
+.readiness-panel {
+  border-radius: 18px; padding: 18px 20px; margin-bottom: 12px;
+  border: 2px solid; position: relative; overflow: hidden;
+}
+.readiness-panel::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 50% 0%, currentColor, transparent);
+  opacity: 0.06; pointer-events: none;
+}
+.readiness-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.readiness-emoji { font-size: 40px; }
+.readiness-info { flex: 1; }
+.readiness-phase { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.readiness-desc { font-size: 13px; color: #6a7a8a; line-height: 1.6; }
+.readiness-action {
+  background: rgba(0,0,0,0.3); border-radius: 10px;
+  padding: 10px 16px; margin-top: 12px;
+  font-size: 13px; font-weight: 600; line-height: 1.7;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.readiness-stages { display: flex; gap: 0; margin-top: 14px; border-radius: 10px; overflow: hidden; }
+.readiness-stage {
+  flex: 1; padding: 7px 4px; text-align: center;
+  font-size: 10px; font-weight: 700; border: none;
+  transition: opacity .3s;
+}
+.readiness-stage.active { opacity: 1; }
+.readiness-stage.inactive { opacity: 0.25; }
 
 /* Flow */
 .flow-big { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
@@ -252,6 +321,42 @@ export function StockDetailPage({ symbol }: { symbol: string }) {
               </div>
             )}
           </div>
+
+          {/* ── Readiness Panel — نقاط التهيؤ والدخول والخروج ── */}
+          {(() => {
+            const r = getReadiness(ts);
+            const stages = [
+              { label: "خروج قوي",      color: "#ef4444", bg: "#2a0505", score: [0,30]   },
+              { label: "تهيؤ للخروج",   color: "#fca5a5", bg: "#200808", score: [30,42]  },
+              { label: "محايد",          color: "#C9A84C", bg: "#1a140a", score: [42,58]  },
+              { label: "تهيؤ للدخول",  color: "#86efac", bg: "#071a0c", score: [58,70]  },
+              { label: "دخول قوي",     color: "#22c55e", bg: "#03180a", score: [70,100]  },
+            ];
+            const activeIdx = stages.findIndex(s => ts >= s.score[0] && ts < s.score[1]);
+            return (
+              <div className="readiness-panel" style={{ background: r.bg, borderColor: r.border, color: r.color, marginBottom: 12 }}>
+                <div className="readiness-top">
+                  <div className="readiness-emoji">{r.emoji}</div>
+                  <div className="readiness-info">
+                    <div className="readiness-phase" style={{ color: r.color }}>{r.icon} {r.phase}</div>
+                    <div className="readiness-desc">{r.desc}</div>
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 42, fontWeight: 800, color: r.color, minWidth: 60, textAlign: "center" }}>{ts}<span style={{ fontSize: 14 }}>/100</span></div>
+                </div>
+                <div className="readiness-action" style={{ color: r.color }}>
+                  📌 ماذا تفعل الآن: {r.action}
+                </div>
+                <div className="readiness-stages">
+                  {stages.map((s, i) => (
+                    <div key={i} className={`readiness-stage ${i === activeIdx ? "active" : "inactive"}`}
+                      style={{ background: i === activeIdx ? s.color + "33" : s.bg, color: s.color, borderLeft: i > 0 ? "1px solid #050810" : "none" }}>
+                      {s.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── Technical Panel ── */}
           {live && (

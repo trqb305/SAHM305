@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ====================================================================
+   سهم 305 — Design System
+   Light & Dark mode with semantic tokens.
+   ==================================================================== */
+
+@layer base {
+  :root {
+    /* ============ LIGHT MODE (default) ============ */
+    --bg-deepest: 250 247 240;       /* warm off-white */
+    --bg-primary: 255 253 248;
+    --bg-card: 255 255 255;
+    --bg-elevated: 247 244 236;
+    --bg-hover: 241 237 226;
+
+    --border: 232 226 213;
+    --border-soft: 218 211 195;
+    --border-strong: 196 187 167;
+
+    --text-primary: 28 36 50;
+    --text-secondary: 95 106 127;
+    --text-tertiary: 156 165 184;
+
+    --gold: 178 130 38;
+    --gold-bright: 201 148 58;
+    --gold-soft: 232 179 73;
+
+    --green: 0 168 124;
+    --red: 215 51 75;
+    --blue: 53 132 220;
+    --orange: 217 130 8;
+    --purple: 148 70 220;
+
+    --shadow-sm: 0 1px 2px rgba(28, 36, 50, 0.04);
+    --shadow-md: 0 4px 12px rgba(28, 36, 50, 0.06);
+    --shadow-lg: 0 12px 32px rgba(28, 36, 50, 0.08);
+    --shadow-xl: 0 24px 48px rgba(28, 36, 50, 0.10);
+  }
+
+  .dark {
+    /* ============ DARK MODE ============ */
+    --bg-deepest: 6 13 20;
+    --bg-primary: 10 17 25;
+    --bg-card: 15 24 34;
+    --bg-elevated: 21 33 46;
+    --bg-hover: 26 40 56;
+
+    --border: 26 36 52;
+    --border-soft: 36 48 71;
+    --border-strong: 50 65 88;
+
+    --text-primary: 230 236 243;
+    --text-secondary: 136 150 171;
+    --text-tertiary: 79 93 114;
+
+    --gold: 201 148 58;
+    --gold-bright: 232 179 73;
+    --gold-soft: 245 210 133;
+
+    --green: 0 200 150;
+    --red: 240 71 96;
+    --blue: 74 158 255;
+    --orange: 245 158 11;
+    --purple: 168 85 247;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.6);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    direction: rtl;
+  }
+
+  html, body {
+    background: rgb(var(--bg-deepest));
+    color: rgb(var(--text-primary));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    /* Light, refined typography — no heavy weights */
+    font-weight: 400;
+    line-height: 1.65;
+  }
+
+  /* Headings — no extra-bold, use weight 500-600 only */
+  h1 { font-weight: 600; letter-spacing: -0.02em; }
+  h2 { font-weight: 600; letter-spacing: -0.015em; }
+  h3 { font-weight: 600; letter-spacing: -0.01em; }
+  h4, h5, h6 { font-weight: 500; }
+
+  /* Numbers always tabular and LTR */
+  .num {
+    font-family: var(--font-mono), 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    direction: ltr;
+    display: inline-block;
+  }
+
+  /* Subtle scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: rgb(var(--bg-primary)); }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border-soft));
+    border-radius: 5px;
+    border: 2px solid rgb(var(--bg-primary));
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--border-strong)); }
+
+  /* Selection */
+  ::selection {
+    background: rgb(var(--gold) / 0.25);
+    color: rgb(var(--text-primary));
+  }
+}
+
+@layer components {
+  /* Soft semantic backgrounds (for badges, cards) */
+  .bg-gold-soft-bg { background: rgb(var(--gold) / 0.10); }
+  .bg-green-soft-bg { background: rgb(var(--green) / 0.10); }
+  .bg-red-soft-bg { background: rgb(var(--red) / 0.10); }
+  .bg-blue-soft-bg { background: rgb(var(--blue) / 0.10); }
+  .bg-orange-soft-bg { background: rgb(var(--orange) / 0.10); }
+  .bg-purple-soft-bg { background: rgb(var(--purple) / 0.10); }
+
+  .border-gold-soft { border-color: rgb(var(--gold) / 0.30); }
+  .border-green-soft { border-color: rgb(var(--green) / 0.30); }
+  .border-red-soft { border-color: rgb(var(--red) / 0.30); }
+
+  /* Reusable button base */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap;
+  }
+  .btn-primary {
+    background: rgb(var(--gold));
+    color: rgb(var(--bg-deepest));
+    @apply px-5 py-2.5 text-sm hover:opacity-95 active:scale-[0.98];
+  }
+  .btn-primary:hover {
+    background: rgb(var(--gold-bright));
+    box-shadow: 0 8px 20px rgb(var(--gold) / 0.25);
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    @apply px-4 py-2.5 text-sm border border-border-soft text-text-primary bg-transparent hover:bg-bg-card;
+  }
+  .btn-ghost:hover { border-color: rgb(var(--gold)); }
+  .btn-outline-gold {
+    @apply px-4 py-2.5 text-sm bg-transparent;
+    color: rgb(var(--gold-bright));
+    border: 1px solid rgb(var(--gold) / 0.3);
+  }
+  .btn-outline-gold:hover { background: rgb(var(--gold) / 0.10); }
+  .btn-large { @apply px-7 py-3.5 text-[15px] rounded-xl; }
+
+  /* Card primitive */
+  .card {
+    background: rgb(var(--bg-card));
+    border: 1px solid rgb(var(--border));
+    @apply rounded-2xl;
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-3.5 py-3 rounded-lg text-sm transition-colors;
+    background: rgb(var(--bg-deepest));
+    border: 1px solid rgb(var(--border-soft));
+    color: rgb(var(--text-primary));
+    direction: ltr;
+    text-align: left;
+  }
+  .input:focus {
+    outline: none;
+    border-color: rgb(var(--gold));
+    box-shadow: 0 0 0 3px rgb(var(--gold) / 0.15);
+  }
+
+  /* Pulse for live indicators */
+  .pulse-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse-fade 1.6s infinite;
+  }
+}
+
+@keyframes pulse-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgb(var(--green) / 0.6); }
+  70% { box-shadow: 0 0 0 6px rgb(var(--green) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--green) / 0); }
+}
+
+/* Smooth theme transition */
+html.transitioning, html.transitioning * {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease !important;
+}

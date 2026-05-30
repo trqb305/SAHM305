@@ -497,10 +497,11 @@ export const SIGNAL_CONFIG: Record<SignalType, { label: string; color: string; b
 };
 
 export const TIER_CONFIG: Record<string, { label: string; color: string }> = {
-  "قيادي": { label: "سهم قيادي",  color: "text-gold-bright" },
-  "نمو":   { label: "سهم نمو",    color: "text-blue" },
-  "عوائد": { label: "سهم عوائد",  color: "text-green" },
-  "خشاش":  { label: "خشاش ⚠",    color: "text-orange" },
+  "قيادي":  { label: "سهم قيادي",  color: "text-gold-bright" },
+  "نمو":    { label: "سهم نمو",    color: "text-blue" },
+  "عوائد":  { label: "سهم عوائد",  color: "text-green" },
+  "خشاش":   { label: "خشاش ⚠",    color: "text-orange" },
+  "متوسط":  { label: "سهم متوسط", color: "text-gold-bright" },
 };
 
 export const RISK_CONFIG: Record<RiskLevel, { label: string; color: string }> = {

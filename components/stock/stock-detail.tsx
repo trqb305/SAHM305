@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TradingViewChart } from "./tradingview-chart";
+import { SaudiChart } from "./saudi-chart";
 import { getStockBySymbol, TIER_CONFIG, RISK_CONFIG } from "@/lib/stocks-data";
 
-// PSAR + Supertrend added automatically in TradingViewChart for entry/exit arrows
-const CHARTS = [
-  { label: "15 دقيقة", interval: "15", studies: ["RSI@tv-basicstudies",   "Stochastic@tv-basicstudies"], tip: "RSI + Stoch + نقاط دخول/خروج" },
-  { label: "ساعي",     interval: "60", studies: ["MACD@tv-basicstudies",  "MASimple@tv-basicstudies"],   tip: "MACD + MA + نقاط دخول/خروج" },
-  { label: "يومي",     interval: "D",  studies: ["BB@tv-basicstudies",    "Volume@tv-basicstudies"],     tip: "BB + حجم + نقاط دخول/خروج" },
-  { label: "أسبوعي",  interval: "W",  studies: ["MAExp@tv-basicstudies", "RSI@tv-basicstudies"],        tip: "EMA + RSI + نقاط دخول/خروج" },
+// بيانات حقيقية من Yahoo Finance — السوق السعودي فقط
+const CHART_TIMEFRAMES: { tf: "15m"|"1h"|"1d"|"1wk"; label: string }[] = [
+  { tf: "15m",  label: "15 دقيقة" },
+  { tf: "1h",   label: "ساعي" },
+  { tf: "1d",   label: "يومي" },
+  { tf: "1wk",  label: "أسبوعي" },
 ];
 
 // ── Signal Readiness System ──────────────────────────────────────
@@ -476,17 +476,16 @@ export function StockDetailPage({ symbol }: { symbol: string }) {
 
           {/* ── 2×2 Charts ── */}
           <div className="sd-panel" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 18px", borderBottom: "1px solid #111b2e" }}>
-              <div className="sd-panel-title" style={{ marginBottom: 0 }}>📊 شارتات {stock.symbol} — 4 إطارات زمنية · مؤشرين لكل شارت</div>
+            <div style={{ padding: "12px 18px", borderBottom: "1px solid #111b2e", display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="sd-panel-title" style={{ marginBottom: 0 }}>📊 بيانات {stock.name} الحقيقية — 4 إطارات زمنية</div>
+              <span style={{ fontSize: 11, color: "#22c55e", background: "rgba(34,197,94,0.1)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(34,197,94,0.2)" }}>
+                ● Yahoo Finance · تاسي مباشر
+              </span>
             </div>
             <div className="charts-grid">
-              {CHARTS.map((c, i) => (
-                <div key={i} className="chart-cell">
-                  <div className="chart-header">
-                    <span className="chart-label">{c.label}</span>
-                    <span className="chart-tip">{c.tip}</span>
-                  </div>
-                  <TradingViewChart key={`${symbol}-${i}`} symbol={stock.symbol} interval={c.interval} studies={c.studies} height={285} />
+              {CHART_TIMEFRAMES.map((c) => (
+                <div key={c.tf} className="chart-cell">
+                  <SaudiChart symbol={stock.symbol} tf={c.tf} label={c.label} height={310} />
                 </div>
               ))}
             </div>

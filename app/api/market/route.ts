@@ -104,50 +104,41 @@ export async function GET() {
       const changeAbs = +(yf.price - prev).toFixed(2);
       const changePct = prev > 0 ? +((yf.price - prev) / prev * 100).toFixed(2) : 0;
 
-      // Real technical analysis
+      // تحليل تقني شامل — التجميع/التصريف مدمج في النتيجة
       const tech = computeConfluence(yf.closes, yf.highs, yf.lows, yf.volumes);
 
-      // Buy pressure from volume-weighted candle direction (last 20 candles)
-      const last20c = yf.closes.slice(-21);
-      const last20v = yf.volumes.slice(-20);
-      let bullVol = 0, bearVol = 0;
-      for (let j = 0; j < 20; j++) {
-        if (last20c[j + 1] > last20c[j]) bullVol += last20v[j];
-        else bearVol += last20v[j];
-      }
-      const totalVol    = bullVol + bearVol;
-      const buyPressure = totalVol > 0 ? Math.round((bullVol / totalVol) * 100) : 50;
-      const flow: "تجميع"|"تصريف"|"محايد" =
-        buyPressure > 57 ? "تجميع" : buyPressure < 43 ? "تصريف" : "محايد";
+      // السيولة والتجميع مأخوذة مباشرة من محرك المؤشرات
+      const flow       = tech.flow;
+      const buyPressure = tech.buyPressure;
+      const flowLabel  = flow === "تجميع" ? "تجميع — شراء قوي" : flow === "تصريف" ? "تصريف — بيع قوي" : "محايد — انتظر";
 
       return {
-        symbol:      s.symbol.replace(".SR", ""),
-        name:        s.name,
-        sector:      s.sector,
-        price:       +(yf.price.toFixed(2)),
-        change:      changePct,
+        symbol:       s.symbol.replace(".SR", ""),
+        name:         s.name,
+        sector:       s.sector,
+        price:        +(yf.price.toFixed(2)),
+        change:       changePct,
         changeAbs,
-        high:        +(yf.high.toFixed(2)),
-        low:         +(yf.low.toFixed(2)),
-        prevClose:   +(prev.toFixed(2)),
-        volume:      yf.volume,
+        high:         +(yf.high.toFixed(2)),
+        low:          +(yf.low.toFixed(2)),
+        prevClose:    +(prev.toFixed(2)),
+        volume:       yf.volume,
         buyPressure,
         flow,
-        flowLabel:   flow === "تجميع" ? "تجميع — شراء قوي" : flow === "تصريف" ? "تصريف — بيع قوي" : "محايد — انتظر",
-        // Technical scores
-        techScore:   tech.score,
-        techSignal:  tech.signal,
+        flowLabel,
+        techScore:    tech.score,
+        techSignal:   tech.signal,
         techSignalEn: tech.signalEn,
-        rsi:         tech.rsi,
-        macdBullish: tech.macd.bullish,
-        macdHist:    tech.macd.hist,
-        bbPct:       tech.bb.pct,
-        stoch:       tech.stoch,
-        ema20Above:  tech.ema20Above,
-        ema50Above:  tech.ema50Above,
-        adx:         tech.adx,
-        vwap:        tech.vwap,
-        priceVsVwap: tech.priceVsVwap,
+        rsi:          tech.rsi,
+        macdBullish:  tech.macd.bullish,
+        macdHist:     tech.macd.hist,
+        bbPct:        tech.bb.pct,
+        stoch:        tech.stoch,
+        ema20Above:   tech.ema20Above,
+        ema50Above:   tech.ema50Above,
+        adx:          tech.adx,
+        vwap:         tech.vwap,
+        priceVsVwap:  tech.priceVsVwap,
         bullishCount: tech.bullishCount,
         bearishCount: tech.bearishCount,
       };

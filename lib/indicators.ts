@@ -1,7 +1,23 @@
 // ================================================================
-// مكتبة المؤشرات التقنية — حسابات حقيقية من بيانات السوق
+// محرك المؤشرات التقنية — سوق الأسهم السعودي (تداول)
+//
+// فلسفة التحليل:
+// 1. السيولة والتجميع/التصريف (Wyckoff) هي الأساس
+//    → تصريف = الأموال الكبيرة تبيع → لا تدخل
+//    → تجميع = الأموال الكبيرة تشتري → فرصة الدخول
+//
+// 2. السوق السعودي يتبع الزخم (Momentum) لا الارتداد
+//    → RSI > 50 صاعد = زخم إيجابي = دخول
+//    → RSI < 50 هابط = زخم سلبي = تجنّب
+//
+// 3. تأكيد الاتجاه (Trend Confirmation)
+//    → السعر فوق EMA20 وEMA50 = اتجاه صاعد مؤكد
+//    → ADX > 25 = اتجاه قوي (يعزز الإشارة)
+//
+// 4. الـ MACD وStochastic كمؤشرات تأكيد إضافية
 // ================================================================
 
+// ── الحسابات الأساسية ────────────────────────────────────────────
 export function calcEMA(prices: number[], period: number): number[] {
   const k = 2 / (period + 1);
   const ema: number[] = [prices[0]];
@@ -61,11 +77,12 @@ export function calcStochastic(highs: number[], lows: number[], closes: number[]
   const recentH = Math.max(...highs.slice(-k));
   const recentL = Math.min(...lows.slice(-k));
   const kVal    = recentH === recentL ? 50 : Math.round(((closes[closes.length - 1] - recentL) / (recentH - recentL)) * 100);
-  return { k: kVal, bullish: kVal < 30 };
+  // صاعد: 50-80 (زخم إيجابي لم يبلغ تشبع الشراء)
+  return { k: kVal, bullish: kVal > 50 && kVal < 80 };
 }
 
 export function calcADX(highs: number[], lows: number[], closes: number[], period = 14): number {
-  if (closes.length < period + 1) return 25;
+  if (closes.length < period + 1) return 20;
   const trs: number[] = [], plusDMs: number[] = [], minusDMs: number[] = [];
   for (let i = 1; i < closes.length; i++) {
     const h = highs[i], l = lows[i], ph = highs[i - 1], pl = lows[i - 1], pc = closes[i - 1];
@@ -92,11 +109,34 @@ export function calcVWAP(highs: number[], lows: number[], closes: number[], volu
   return vSum > 0 ? +(pvSum / vSum).toFixed(2) : closes[closes.length - 1];
 }
 
+// ── كشف التجميع/التصريف (Wyckoff Volume Analysis) ──────────────────
+// آخر 20 شمعة مرجّحة بالحجم
+// صاعدة = جلسة ارتفع فيها السعر (حجم شراء)
+// هابطة = جلسة انخفض فيها السعر (حجم بيع)
+export function calcVolumeFlow(closes: number[], volumes: number[], window = 20): {
+  buyPressure: number;  // 0-100
+  flow: "تجميع" | "تصريف" | "محايد";
+} {
+  const len = Math.min(window, closes.length - 1);
+  let bullVol = 0, bearVol = 0;
+  for (let i = closes.length - len; i < closes.length; i++) {
+    const delta = closes[i] - closes[i - 1];
+    if (delta > 0) bullVol += volumes[i];
+    else if (delta < 0) bearVol += volumes[i];
+    // جلسات التعادل تُهمَل
+  }
+  const total = bullVol + bearVol;
+  const buyPressure = total > 0 ? Math.round((bullVol / total) * 100) : 50;
+  const flow = buyPressure > 58 ? "تجميع" : buyPressure < 42 ? "تصريف" : "محايد";
+  return { buyPressure, flow };
+}
+
 // ================================================================
-// نظام تقاطع المؤشرات — الدرجة 0-100
+// نظام تقاطع المؤشرات — السوق السعودي
+// الأوزان: السيولة (25%) + الاتجاه (27%) + الزخم (28%) + البولنجر (8%) + الـ ADX (12%)
 // ================================================================
 export interface TechnicalScore {
-  score: number;           // 0-100
+  score: number;
   signal: "دخول قوي" | "دخول" | "انتظر" | "خروج" | "خروج قوي";
   signalEn: "strong_buy" | "buy" | "neutral" | "sell" | "strong_sell";
   rsi: number;
@@ -108,78 +148,138 @@ export interface TechnicalScore {
   adx: number;
   vwap: number;
   priceVsVwap: "above" | "below";
-  bullishCount: number;    // عدد المؤشرات الصاعدة
-  bearishCount: number;    // عدد المؤشرات الهابطة
+  buyPressure: number;
+  flow: "تجميع" | "تصريف" | "محايد";
+  bullishCount: number;
+  bearishCount: number;
 }
 
 export function computeConfluence(
   closes: number[], highs: number[], lows: number[], volumes: number[]
 ): TechnicalScore {
   const price = closes[closes.length - 1];
-  const rsi   = calcRSI(closes);
-  const macd  = calcMACD(closes);
-  const bb    = calcBB(closes);
-  const stoch = calcStochastic(highs, lows, closes);
-  const adx   = calcADX(highs, lows, closes);
-  const ema20 = calcEMA(closes, 20);
-  const ema50 = calcEMA(closes, 50);
-  const vwap  = calcVWAP(highs, lows, closes, volumes);
 
-  const ema20Above = price > ema20[ema20.length - 1];
-  const ema50Above = price > ema50[ema50.length - 1];
-  const priceVsVwap: "above" | "below" = price >= vwap ? "above" : "below";
+  // ── حساب المؤشرات ──
+  const rsi    = calcRSI(closes);
+  const macd   = calcMACD(closes);
+  const bb     = calcBB(closes);
+  const stoch  = calcStochastic(highs, lows, closes);
+  const adx    = calcADX(highs, lows, closes);
+  const ema20  = calcEMA(closes, 20);
+  const ema50  = calcEMA(closes, 50);
+  const vwap   = calcVWAP(highs, lows, closes, volumes);
+  const vf     = calcVolumeFlow(closes, volumes);
+
+  const ema20Above  = price > ema20[ema20.length - 1];
+  const ema50Above  = price > ema50[ema50.length - 1];
+  const priceVsVwap = price >= vwap ? "above" : "below";
 
   let score = 50;
   let bull = 0, bear = 0;
 
-  // RSI
-  if (rsi < 25)      { score += 22; bull++; }
-  else if (rsi < 35) { score += 14; bull++; }
-  else if (rsi < 45) { score +=  6; }
-  else if (rsi > 75) { score -= 22; bear++; }
-  else if (rsi > 65) { score -= 14; bear++; }
-  else if (rsi > 55) { score -=  6; }
+  // ══════════════════════════════════════════════════════════════
+  // 1. السيولة والتجميع/التصريف — الأهم (±25 نقطة)
+  //    المبدأ: الأموال الكبيرة لا تكذب
+  // ══════════════════════════════════════════════════════════════
+  if (vf.flow === "تجميع")  { score += 25; bull++; }
+  else if (vf.flow === "تصريف") { score -= 25; bear++; }
+  // محايد: لا تغيير في النقطة
 
-  // MACD
-  if (macd.bullish)  { score += 18; bull++; }
-  else               { score -= 18; bear++; }
+  // ══════════════════════════════════════════════════════════════
+  // 2. الاتجاه — EMA20 وEMA50 (±15، ±12 نقطة)
+  //    السعر فوق المتوسطات = اتجاه صاعد
+  // ══════════════════════════════════════════════════════════════
+  if (ema50Above) { score += 15; bull++; }
+  else            { score -= 15; bear++; }
 
-  // Bollinger %B
-  if (bb.pct < 10)       { score += 18; bull++; }
-  else if (bb.pct < 25)  { score += 10; bull++; }
-  else if (bb.pct > 90)  { score -= 18; bear++; }
-  else if (bb.pct > 75)  { score -= 10; bear++; }
+  if (ema20Above) { score += 12; bull++; }
+  else            { score -= 12; bear++; }
 
-  // Stochastic
-  if (stoch.k < 20)      { score += 15; bull++; }
-  else if (stoch.k < 35) { score +=  8; }
-  else if (stoch.k > 80) { score -= 15; bear++; }
-  else if (stoch.k > 65) { score -=  8; }
-
-  // EMA 20
-  if (ema20Above)   { score += 10; bull++; }
-  else              { score -= 10; bear++; }
-
-  // EMA 50
-  if (ema50Above)   { score += 12; bull++; }
-  else              { score -= 12; bear++; }
-
-  // VWAP
+  // VWAP — سعر عادل مرجّح بالحجم (±8)
   if (priceVsVwap === "above") { score += 8; bull++; }
   else                          { score -= 8; bear++; }
 
-  // ADX (trend strength — boosts signal)
-  if (adx > 25) score += macd.bullish ? 8 : -8;
+  // ══════════════════════════════════════════════════════════════
+  // 3. الزخم — RSI وMACD وStochastic
+  //    السوق السعودي يتبع الزخم لا الارتداد
+  // ══════════════════════════════════════════════════════════════
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  // RSI — مؤشر الزخم (±12 نقطة)
+  // > 55 = زخم صعودي قوي = دخول
+  // 45-55 = محايد
+  // < 45 = زخم هبوطي = ابتعد
+  // > 75 = تشبع شراء (محايد — الاتجاه لا يزال صاعداً لكن خطر)
+  if      (rsi > 55 && rsi <= 75) { score += 12; bull++; }
+  else if (rsi > 75)               { score +=  4;          } // تشبع شراء — محايد
+  else if (rsi >= 45 && rsi <= 55) { /* محايد */ }
+  else if (rsi >= 35 && rsi <  45) { score -= 12; bear++; }
+  else                              { score -= 18; bear++; } // تشبع بيع شديد
 
+  // MACD — تقاطع الزخم (±10 نقطة)
+  if (macd.bullish) { score += 10; bull++; }
+  else              { score -= 10; bear++; }
+
+  // Stochastic — 50-80 زخم إيجابي (±8 نقطة)
+  if (stoch.k > 50 && stoch.k < 80) { score +=  8; bull++; }
+  else if (stoch.k >= 80)             { score +=  2;          } // تشبع محايد
+  else if (stoch.k >= 30)             { score -=  8; bear++; }
+  else                                { score -= 12; bear++; } // تشبع بيع
+
+  // ══════════════════════════════════════════════════════════════
+  // 4. البولنجر باندز — موقع السعر (±8 نقطة)
+  //    فوق المتوسط = صاعد
+  // ══════════════════════════════════════════════════════════════
+  if      (bb.pct > 50 && bb.pct < 85) { score +=  8; bull++; } // فوق المتوسط، لم يبلغ الضغط العلوي
+  else if (bb.pct >= 85)                { score +=  2;          } // عند الحد العلوي — محايد
+  else if (bb.pct >= 30)                { score -=  8; bear++; } // تحت المتوسط
+  else                                  { score -=  4;          } // عند الحد السفلي — قد يرتد لكن ليس إشارة
+
+  // ══════════════════════════════════════════════════════════════
+  // 5. ADX — قوة الاتجاه (±12 نقطة تعزيزية)
+  //    ADX > 25 = اتجاه قوي → عزّز الإشارة
+  //    ADX < 20 = سوق عرضي → اضعف الإشارة
+  // ══════════════════════════════════════════════════════════════
+  if (adx > 30) {
+    // اتجاه قوي جداً — عزّز الإشارة الموجودة
+    const boost = macd.bullish ? 12 : -12;
+    score += boost;
+    if (boost > 0) bull++;
+    else bear++;
+  } else if (adx > 20) {
+    const boost = macd.bullish ? 6 : -6;
+    score += boost;
+  } else {
+    // سوق عرضي — اخفض الثقة بالإشارة
+    score = Math.round(score * 0.88);
+  }
+
+  score = Math.max(5, Math.min(95, Math.round(score)));
+
+  // ══════════════════════════════════════════════════════════════
+  // تحديد الإشارة
+  // قاعدة صارمة: لا يمكن أن تكون إشارة الدخول مع التصريف
+  // ══════════════════════════════════════════════════════════════
   let signal: TechnicalScore["signal"];
   let signalEn: TechnicalScore["signalEn"];
-  if      (score >= 72) { signal = "دخول قوي";  signalEn = "strong_buy";   }
-  else if (score >= 58) { signal = "دخول";       signalEn = "buy";          }
-  else if (score >= 42) { signal = "انتظر";      signalEn = "neutral";      }
-  else if (score >= 28) { signal = "خروج";       signalEn = "sell";         }
-  else                  { signal = "خروج قوي";   signalEn = "strong_sell";  }
 
-  return { score, signal, signalEn, rsi, macd, bb, stoch: stoch.k, ema20Above, ema50Above, adx, vwap, priceVsVwap, bullishCount: bull, bearishCount: bear };
+  // إذا كان التصريف واضحاً — لا تعطي إشارة دخول بغض النظر عن النتيجة
+  if (vf.flow === "تصريف" && score >= 58) {
+    score = Math.min(score, 55); // اخفض الحد الأقصى للنتيجة عند التصريف
+  }
+
+  if      (score >= 72) { signal = "دخول قوي";  signalEn = "strong_buy";  }
+  else if (score >= 58) { signal = "دخول";       signalEn = "buy";         }
+  else if (score >= 42) { signal = "انتظر";      signalEn = "neutral";     }
+  else if (score >= 28) { signal = "خروج";       signalEn = "sell";        }
+  else                  { signal = "خروج قوي";   signalEn = "strong_sell"; }
+
+  return {
+    score, signal, signalEn,
+    rsi, macd, bb, stoch: stoch.k,
+    ema20Above, ema50Above, adx, vwap, priceVsVwap,
+    buyPressure: vf.buyPressure,
+    flow: vf.flow,
+    bullishCount: bull,
+    bearishCount: bear,
+  };
 }
